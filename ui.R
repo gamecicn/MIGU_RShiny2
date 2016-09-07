@@ -44,7 +44,7 @@ shinyUI(fluidPage(
                        actionButton("go", "查看")
                      ),
                      
-                     bsModal("modalExample", 
+                     bsModal("detail_imei", 
                              "EMMC 异常统计信息", 
                              "go", 
                              size = "large", 
@@ -53,11 +53,25 @@ shinyUI(fluidPage(
                                id='tabpanel_app_detail',
                                
                                tabPanel('EMMC 汇总表',
-                                        actionButton("go_emmc", "查看"),
                                         DT::dataTableOutput('app_imei_detail')
                                )
                              )
-                     )
+                     )#,
+                     
+                     #bsModal("detail_si", 
+                     #        "Start Time Interval 异常统计信息", 
+                     #        "go", 
+                     #        size = "large", 
+                     #        tabsetPanel(
+                     #          id='tabpanel_app_detail',
+                     #          
+                     #          tabPanel('EMMC 汇总表',
+                     #                   DT::dataTableOutput('app_si_detail')
+                     #          )
+                     #        )
+                     #)
+                     
+                     
                   )
        ),
       

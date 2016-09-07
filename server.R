@@ -24,7 +24,7 @@ shinyServer(function(input, output, session) {
     
       mysql_con <- dbConnect(MySQL(), user="root", password="irdetogame", dbname='DATACENTERE53_HADOOP', host="10.86.51.31")
       sql_query <- sprintf("select appid, ms, emmc_md5 %s  from LOGDETAIL where reqtype='BILLINGREQ';", columns_name)
-      df  <- fetch(dbSendQuery(mysql_con, sql_query), n=50000)
+      df  <- fetch(dbSendQuery(mysql_con, sql_query), n=30000)
       on.exit(dbDisconnect(mysql_con)) 
         
       # eliminate some data
@@ -88,11 +88,29 @@ shinyServer(function(input, output, session) {
       df <- get_start_interval_analysis_data()
     }
     
-    
-    
     subset(df, appid == get_selected_appid() )
     
   })
+  
+  output$app_imei_detail <- renderDataTable({
+    
+    get_selected_detail_data()
+  })
+  
+  get_selected_detail_data <- reactive({
+    print("get_selected_detail_data")
+    
+    if (input$tabpanel == "ab_imei") {
+      df <- get_app_imei_detail()
+    }
+    else if (input$tabpanel == "ab_start_interval"){
+      df <- get_app_si_detail()
+    }
+    
+    df
+    
+  })
+  
   
   
   #==========================================================================================
@@ -134,42 +152,43 @@ shinyServer(function(input, output, session) {
   }, selection = 'single', options = list(pageLength = 100), class = 'cell-border strip hover')
   
   
-  output$app_imei_detail <- renderDataTable({
+  get_app_imei_detail <- function() {
+    print("app_imei_detail")
     
-      print("app_imei_detail")
+    sd <- get_select_app_record()
+    sd_group <- split(sd, sd$emmc_md5)
     
-      sd <- get_select_app_record()
-      sd_group <- split(sd, sd$emmc_md5)
-      
-      q <- t(sapply(sd_group, FUN=function(g) length(unique(g$ms) )  ))
-      q <- as.data.frame(t(q))
-      
-      q$emmc <- rownames(q)
-      rownames(q) <- NULL
-      
-      colnames(q) <- c("count", 'emmc')
-      
-      # Get mismatch record
-      q <- subset(q, q$count > 1)
-      
-      res <- subset(sd, sd$emmc_md5 %in% q$emmc)
-      res <- res[, c("emmc_md5", "ms")]
-      
-      rownames(res) <- NULL
-      
-      res$mark = paste(res$emmc_md5, res$ms, sep='-')
-      res_group <- split(res, res$mark)
-      
-      q <- t(sapply(res_group, FUN=function(g)  c( g$emmc_md5[1] ,g$ms[1], length(g$mark)    )) )
-      q <- as.data.frame(q)
-      
-      if(nrow(q) > 0) {
-        rownames(q) <- NULL
-        colnames(q) <- c("emmc", "ms", "count")
-      }
+    q <- t(sapply(sd_group, FUN=function(g) length(unique(g$ms) )  ))
+    q <- as.data.frame(t(q))
+    
+    q$emmc <- rownames(q)
+    rownames(q) <- NULL
+    
+    colnames(q) <- c("count", 'emmc')
+    
+    # Get mismatch record
+    q <- subset(q, q$count > 1)
+    
+    res <- subset(sd, sd$emmc_md5 %in% q$emmc)
+    res <- res[, c("emmc_md5", "ms")]
+    
+    rownames(res) <- NULL
+    
+    res$mark = paste(res$emmc_md5, res$ms, sep='-')
+    res_group <- split(res, res$mark)
+    
+    q <- t(sapply(res_group, FUN=function(g)  c( g$emmc_md5[1] ,g$ms[1], length(g$mark)    )) )
+    q <- as.data.frame(q)
+    
+    #if(nrow(q) > 0) {
+    rownames(q) <- NULL
+    colnames(q) <- c("emmc", "ms", "count")
+    #}
+    
+    DT::datatable(q, selection = 'single', class = 'cell-border strip hover')
+  }
+  
 
-      DT::datatable(q, selection = 'single', class = 'cell-border strip hover')
-  })
   
   #==========================================================================================
   #  Tab 2 --- Start Time Interval Abnormal
@@ -202,9 +221,11 @@ shinyServer(function(input, output, session) {
         df$less_120 <- as.numeric(df$apicall_start_interval) < 120
         
         # Split 
-        print("sapply .... ")
+        print("split .... ")
         app_group <- split(df, as.factor(df$appid), drop=TRUE)
         
+        
+        print("sapply .... ")
         df_app_start_interval <- t(sapply(app_group, FUN=function(g) c(sum(g$less_10),
                                                                        sum(g$less_30), 
                                                                        sum(g$less_60), 
@@ -216,18 +237,38 @@ shinyServer(function(input, output, session) {
                                                                        sum(g$less_120)/nrow(g),
                                                                        get_top10_interval_rate(g))))
         
-        
+        print("sapply 1 .... ")
         df_app_start_interval <- as.data.frame(df_app_start_interval)
-      
+        print("sapply 2 .... ")
         colnames(df_app_start_interval) <- c("l_10", "l_30", "l_60", "l_120", "records", 
                                              "l_10_r", "l_30_r", "l_60_r", "l_120_r", 
                                              "top10_rate", "seg")
+        
+        df_app_start_interval
         
         # Sort                         
         #df_app_start_interval = df_app_start_interval[order(df_app_start_interval$top10_interval_rate, decreasing=TRUE), ]
         
       })
   }, selection = 'single', options = list(pageLength = 100), class = 'cell-border strip hover')
+  
+  get_app_si_detail <- function(){
+    
+    print("app_si_detail")
+    
+    sd <- get_select_app_record()
+    
+    sd_group <- split(sd, as.factor(sd$apicall_start_interval), drop=TRUE)
+    
+    sic <- as.data.frame(t(t(sapply(sd_group, FUN=function(g) nrow(g)))))
+    sic$apicall_start_interval <- rownames(sic)
+    colnames(sic) <- c("count", "apicall_start_interval")
+    sic = sic[order(sic$count, decreasing=TRUE),]  # sore decreasing
+    
+    
+    DT::datatable(sic, selection = 'single', class = 'cell-border strip hover')
+  }
+  
 })
 
 
