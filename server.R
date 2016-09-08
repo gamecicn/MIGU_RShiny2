@@ -19,11 +19,19 @@ shinyServer(function(input, output, session) {
   
   delay_min_records_threshold <- eventReactive(input$go_update, {input$min_records_threshold})
   
+  delay_data_range <- eventReactive(input$go_update, {input$dateRange})
+  
   # "appid, ms, emmc_md5" is basic  columns_name
   get_data_from_DB <- function(columns_name) {
     
-      mysql_con <- dbConnect(MySQL(), user="root", password="irdetogame", dbname='DATACENTERE53_HADOOP', host="10.86.51.31")
-      sql_query <- sprintf("select appid, ms, emmc_md5 %s  from LOGDETAIL where reqtype='BILLINGREQ';", columns_name)
+      data_range <- delay_data_range()
+    
+      mysql_con <- dbConnect(MySQL(), user="root", password="irdetogame", dbname='MGLOGBACKUP', host="10.86.51.31")
+      
+      sql_query <- sprintf("select appid, ms, emmc_md5 %s  from LOGDETAIL where  stime between '%s' and '%s' and reqtype='BILLINGREQ';", columns_name, data_range[1], data_range[2] )
+      
+      print(sql_query)
+      
       df  <- fetch(dbSendQuery(mysql_con, sql_query), n=30000)
       on.exit(dbDisconnect(mysql_con)) 
         
@@ -31,7 +39,6 @@ shinyServer(function(input, output, session) {
       df <- subset(df, emmc_md5 != "AAAAAAAAAAAAAAAAAAAAAAA=" & ms != "")
       
       min_records_threshold <- delay_min_records_threshold()
-      #min_records_threshold <- input$min_records_threshold
       
       # eliminate too little record appid
       if (as.numeric(min_records_threshold) > 0) {
@@ -57,7 +64,6 @@ shinyServer(function(input, output, session) {
     
       withProgress(message = 'Fetching data ... ... ', value = 0,{
           df <- get_data_from_DB("")
-          df
       })
   })
   
@@ -67,8 +73,10 @@ shinyServer(function(input, output, session) {
       print("get_imei_analaysis_data")
       
       withProgress(message = 'Fetching data ... ... ', value = 0,{
-        get_data_from_DB(",imei, apicall_start_interval")
+        df <- get_data_from_DB(",imei, apicall_start_interval")
       })
+      
+      
   })
   
   ############################################################################################################
@@ -212,6 +220,7 @@ shinyServer(function(input, output, session) {
   output$start_time_interval_abnormal <- renderDataTable({
       df <- get_start_interval_analysis_data()
       
+ 
       withProgress(message = 'Calculating STI ... ... ', value = 0, {
         
         # Calculate more columns
@@ -263,7 +272,9 @@ shinyServer(function(input, output, session) {
     sic <- as.data.frame(t(t(sapply(sd_group, FUN=function(g) nrow(g)))))
     sic$apicall_start_interval <- rownames(sic)
     colnames(sic) <- c("count", "apicall_start_interval")
-    sic = sic[order(sic$count, decreasing=TRUE),]  # sore decreasing
+    
+    #sic = sic[order(sic$count, decreasing=TRUE),]  # sore decreasing
+    sic$apicall_start_interval <- as.numeric(sic$apicall_start_interval)
     
     
     DT::datatable(sic, selection = 'single', class = 'cell-border strip hover')

@@ -27,6 +27,12 @@ shinyUI(fluidPage(
                    wellPanel(
                        fluidRow(h3("选择数据")),
                        
+                       fluidRow(dateRangeInput('dateRange',
+                                                label = "",
+                                                start = Sys.Date() , end = Sys.Date(),
+                                                separator = " - "
+                       )),
+                       
                        fluidRow(
                          textInput("min_records_threshold", "最少记录条数", value = 0),
                          
@@ -56,22 +62,7 @@ shinyUI(fluidPage(
                                         DT::dataTableOutput('app_imei_detail')
                                )
                              )
-                     )#,
-                     
-                     #bsModal("detail_si", 
-                     #        "Start Time Interval 异常统计信息", 
-                     #        "go", 
-                     #        size = "large", 
-                     #        tabsetPanel(
-                     #          id='tabpanel_app_detail',
-                     #          
-                     #          tabPanel('EMMC 汇总表',
-                     #                   DT::dataTableOutput('app_si_detail')
-                     #          )
-                     #        )
-                     #)
-                     
-                     
+                     )
                   )
        ),
       
